@@ -14,14 +14,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DISPLAY_HEIGHT                 80
-#define BUTTON_COLUMNS                 4
-#define BUTTON_ROWS                    4
-#define BUTTON_SPACING                 4
-#define BUTTON_START_X                 6
-#define BUTTON_START_Y                 (DISPLAY_HEIGHT + 10)
-#define BUTTON_WIDTH                   ((ILI9341_WIDTH - (BUTTON_START_X * 2) - (BUTTON_SPACING * (BUTTON_COLUMNS - 1))) / BUTTON_COLUMNS)
-#define BUTTON_HEIGHT                  55
+#define DISPLAY_HEIGHT                 60
+#define BUTTON_WIDTH                   54
+#define BUTTON_HEIGHT                  45
+#define BUTTON_SPACING                 5
+#define BUTTON_START_X                 5
+#define BUTTON_START_Y                 70
 #define INPUT_BUFFER_SIZE              17
 
 typedef enum {
@@ -47,12 +45,6 @@ typedef struct {
     bool error;
     char input[INPUT_BUFFER_SIZE];
 } CalculatorState;
-
-typedef struct {
-    uint16_t x;
-    uint16_t y;
-    bool pressed;
-} TouchStatus;
 
 static CalculatorButton buttons[] = {
     {"7", BUTTON_START_X + 0 * (BUTTON_WIDTH + BUTTON_SPACING), BUTTON_START_Y + 0 * (BUTTON_HEIGHT + BUTTON_SPACING), BUTTON_WIDTH, BUTTON_HEIGHT, CALC_BUTTON_DIGIT},
@@ -139,10 +131,9 @@ static void Calculator_FormatLine(const char *prefix, double value, char *output
     snprintf(output, size, "%s%s", prefix, number);
 }
 
-static void Calculator_DrawDisplay(const CalculatorState *state, const TouchStatus *touch) {
+static void Calculator_DrawDisplay(const CalculatorState *state) {
     char line1[64];
     char line2[64];
-    char line3[64];
 
     TM_ILI9341_DrawFilledRectangle(0, 0, ILI9341_WIDTH, DISPLAY_HEIGHT, ILI9341_COLOR_BLACK);
 
@@ -162,22 +153,8 @@ static void Calculator_DrawDisplay(const CalculatorState *state, const TouchStat
         snprintf(line2, sizeof(line2), "Op: none");
     }
 
-    if (touch != NULL && touch->pressed) {
-        snprintf(line3, sizeof(line3), "Touch: %3u,%3u", (unsigned int)touch->x, (unsigned int)touch->y);
-    } else {
-        snprintf(line3, sizeof(line3), "Touch: ---");
-    }
-
     TM_ILI9341_Puts(5, 5, line1, &TM_Font_11x18, ILI9341_COLOR_GREEN, ILI9341_COLOR_BLACK);
     TM_ILI9341_Puts(5, 30, line2, &TM_Font_11x18, ILI9341_COLOR_LIGHTGREY, ILI9341_COLOR_BLACK);
-    TM_ILI9341_Puts(5, 55, line3, &TM_Font_11x18, ILI9341_COLOR_YELLOW, ILI9341_COLOR_BLACK);
-}
-
-static void Calculator_DrawKeypadBackground(void) {
-    uint16_t top = BUTTON_START_Y - BUTTON_SPACING;
-    uint16_t height = ILI9341_HEIGHT - top;
-
-    TM_ILI9341_DrawFilledRectangle(0, top, ILI9341_WIDTH, height, ILI9341_COLOR_DARKGRAY);
 }
 
 static uint16_t Calculator_ButtonColor(const CalculatorButton *button) {
@@ -217,12 +194,16 @@ static void Calculator_DrawButton(const CalculatorButton *button, bool pressed) 
     textY = button->y + (button->h - textHeight) / 2;
 
     TM_ILI9341_Puts(textX, textY, (char *)button->label, &TM_Font_11x18, textColor, background);
+    uint16_t textWidth = strlen(button->label) * 11;
+    uint16_t textHeight = 18;
+    uint16_t textX = button->x + (button->w - textWidth) / 2;
+    uint16_t textY = button->y + (button->h - textHeight) / 2;
+
+    TM_ILI9341_Puts(textX, textY, button->label, &TM_Font_11x18, textColor, background);
 }
 
 static void Calculator_DrawButtons(void) {
     uint32_t i;
-
-    Calculator_DrawKeypadBackground();
 
     for (i = 0; i < (sizeof(buttons) / sizeof(buttons[0])); i++) {
         Calculator_DrawButton(&buttons[i], false);
@@ -301,9 +282,6 @@ int main(void) {
     TM_STMPE811_TouchData touchData;
     CalculatorState state;
     int8_t lastButton = -1;
-    TouchStatus touchStatus;
-    TouchStatus lastRenderedStatus;
-    bool stateDirty;
 
     SystemInit();
     TM_ILI9341_Init();
@@ -318,45 +296,24 @@ int main(void) {
     touchData.orientation = TM_STMPE811_Orientation_Portrait_2;
 
     Calculator_Reset(&state);
-    touchStatus.x = 0;
-    touchStatus.y = 0;
-    touchStatus.pressed = false;
-    lastRenderedStatus = touchStatus;
-    stateDirty = true;
-
-    Calculator_DrawDisplay(&state, &touchStatus);
+    Calculator_DrawDisplay(&state);
     Calculator_DrawButtons();
 
     while (1) {
         if (TM_STMPE811_ReadTouch(&touchData) == TM_STMPE811_State_Pressed) {
-            touchStatus.x = touchData.x;
-            touchStatus.y = touchData.y;
-            touchStatus.pressed = true;
             int8_t pressed = Calculator_FindButton(touchData.x, touchData.y);
 
             if (pressed >= 0 && pressed != lastButton) {
                 Calculator_HandleButton(&state, &buttons[pressed]);
-                stateDirty = true;
+                Calculator_DrawDisplay(&state);
                 Calculator_DrawButton(&buttons[pressed], true);
                 lastButton = pressed;
             }
         } else {
-            touchStatus.x = 0;
-            touchStatus.y = 0;
-            touchStatus.pressed = false;
             if (lastButton >= 0) {
                 Calculator_DrawButton(&buttons[lastButton], false);
                 lastButton = -1;
             }
-        }
-
-        if (stateDirty ||
-            touchStatus.pressed != lastRenderedStatus.pressed ||
-            touchStatus.x != lastRenderedStatus.x ||
-            touchStatus.y != lastRenderedStatus.y) {
-            Calculator_DrawDisplay(&state, &touchStatus);
-            lastRenderedStatus = touchStatus;
-            stateDirty = false;
         }
     }
 }
