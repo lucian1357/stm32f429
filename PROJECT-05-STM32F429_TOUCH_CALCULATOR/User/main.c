@@ -194,6 +194,12 @@ static void Calculator_DrawButton(const CalculatorButton *button, bool pressed) 
     textY = button->y + (button->h - textHeight) / 2;
 
     TM_ILI9341_Puts(textX, textY, (char *)button->label, &TM_Font_11x18, textColor, background);
+    uint16_t textWidth = strlen(button->label) * 11;
+    uint16_t textHeight = 18;
+    uint16_t textX = button->x + (button->w - textWidth) / 2;
+    uint16_t textY = button->y + (button->h - textHeight) / 2;
+
+    TM_ILI9341_Puts(textX, textY, button->label, &TM_Font_11x18, textColor, background);
 }
 
 static void Calculator_DrawButtons(void) {
