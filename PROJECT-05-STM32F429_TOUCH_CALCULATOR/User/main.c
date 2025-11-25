@@ -175,6 +175,10 @@ static uint16_t Calculator_ButtonColor(const CalculatorButton *button) {
 static void Calculator_DrawButton(const CalculatorButton *button, bool pressed) {
     uint16_t background = Calculator_ButtonColor(button);
     uint16_t textColor = ILI9341_COLOR_BLACK;
+    uint16_t textWidth;
+    uint16_t textHeight;
+    uint16_t textX;
+    uint16_t textY;
 
     if (pressed) {
         background = ILI9341_COLOR_YELLOW;
@@ -184,6 +188,12 @@ static void Calculator_DrawButton(const CalculatorButton *button, bool pressed) 
     TM_ILI9341_DrawRectangle(button->x, button->y, button->w, button->h, ILI9341_COLOR_BLACK);
 
     /* Center label */
+    textWidth = strlen(button->label) * 11;
+    textHeight = 18;
+    textX = button->x + (button->w - textWidth) / 2;
+    textY = button->y + (button->h - textHeight) / 2;
+
+    TM_ILI9341_Puts(textX, textY, (char *)button->label, &TM_Font_11x18, textColor, background);
     uint16_t textWidth = strlen(button->label) * 11;
     uint16_t textHeight = 18;
     uint16_t textX = button->x + (button->w - textWidth) / 2;
